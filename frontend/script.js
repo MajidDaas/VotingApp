@@ -10,7 +10,7 @@ const loginError = document.getElementById("loginError");
 
 // Change these for your admin login
 const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "password123";
+const ADMIN_PASSWORD = "supersecret";
 
 loginForm.addEventListener("submit", (e) => {
   e.preventDefault();
