@@ -1,0 +1,18 @@
+{
+  "name": "ranked-voting-app",
+  "version": "1.0.0",
+  "description": "Ranked-choice voting app with single-use tokens and admin UI",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "generate-csv": "node backend/generate-tokens-csv.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "json2csv": "^5.0.7",
+    "uuid": "^9.0.1"
+  },
+  "license": "MIT"
+}

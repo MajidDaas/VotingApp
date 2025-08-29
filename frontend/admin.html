@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Admin Panel</title>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+  <div class="card" id="loginCard">
+    <h2>Admin Login</h2>
+    <input id="username" placeholder="Username" />
+    <input id="password" placeholder="Password" type="password" />
+    <button id="loginBtn">Login</button>
+  </div>
+
+  <div id="adminPanel" style="display:none;">
+    <h1>Admin Panel</h1>
+
+    <section class="card">
+      <h3>Tokens</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <button id="generateTokenBtn">Generate New Token</button>
+        <button id="refreshTokensBtn">Refresh Tokens</button>
+        <button id="downloadCSVBtn">Download CSV</button>
+      </div>
+      <ul id="tokensList"></ul>
+      <p id="newTokenOutput" style="word-break:break-all;"></p>
+    </section>
+
+    <section class="card">
+      <h3>Raw Votes</h3>
+      <div style="margin-bottom:8px;">
+        <button id="refreshVotesBtn">Refresh Raw Votes</button>
+      </div>
+      <pre id="rawVotesPre"></pre>
+    </section>
+
+    <section class="card">
+      <h3>Results</h3>
+      <div style="margin-bottom:8px;">
+        <button id="refreshResultsBtn">Refresh Results</button>
+      </div>
+      <pre id="resultsPre"></pre>
+    </section>
+  </div>
+
+<script>
+const API_URL = "http://localhost:3000"; // <-- REPLACE with your backend URL
+let username = "", password = "";
+
+const loginCard = document.getElementById("loginCard");
+const adminPanel = document.getElementById("adminPanel");
+
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  username = document.getElementById("username").value.trim();
+  password = document.getElementById("password").value.trim();
+  if (!username || !password) return alert("Enter credentials");
+
+  const res = await fetch(`${API_URL}/api/tokens?username=${encodeURIComponent(username)}&admin=${encodeURIComponent(password)}`);
+  if (!res.ok) {
+    const err = await res.json();
+    return alert(err.error || "Login failed");
+  }
+  loginCard.style.display = "none";
+  adminPanel.style.display = "block";
+  loadTokens();
+});
+
+async function loadTokens() {
+  const res = await fetch(`${API_URL}/api/tokens?username=${encodeURIComponent(username)}&admin=${encodeURIComponent(password)}`);
+  if (!res.ok) {
+    const err = await res.json();
+    return alert(err.error || "Failed to load tokens");
+  }
+  const tokens = await res.json();
+  const list = document.getElementById("tokensList");
+  list.innerHTML = "";
+  tokens.forEach(t => {
+    const li = document.createElement("li");
+    li.style.display = "flex";
+    li.style.justifyContent = "space-between";
+    li.style.alignItems = "center";
+    li.style.marginBottom = "6px";
+
+    const left = document.createElement("div");
+    left.style.flex = "1";
+    left.textContent = `${t.url} — ${t.used ? "USED" : "AVAILABLE"}`;
+
+    const copyBtn = document.createElement("button");
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(t.url);
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => (copyBtn.textContent = "Copy"), 1200);
+      } catch (err) {
+        alert("Copy failed");
+      }
+    });
+
+    li.appendChild(left);
+    li.appendChild(copyBtn);
+    list.appendChild(li);
+  });
+}
+
+document.getElementById("generateTokenBtn").addEventListener("click", async () => {
+  const res = await fetch(`${API_URL}/api/generate-token?username=${encodeURIComponent(username)}&admin=${encodeURIComponent(password)}`, {
+    method: "POST"
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    return alert(data.error || "Failed to generate token");
+  }
+  document.getElementById("newTokenOutput").textContent = `New token: ${data.url}`;
+  loadTokens();
+});
+
+document.getElementById("refreshTokensBtn").addEventListener("click", loadTokens);
+
+document.getElementById("downloadCSVBtn").addEventListener("click", () => {
+  window.location = `${API_URL}/api/generate-tokens-csv?username=${encodeURIComponent(username)}&admin=${encodeURIComponent(password)}`;
+});
+
+document.getElementById("refreshVotesBtn").addEventListener("click", async () => {
+  const res = await fetch(`${API_URL}/api/raw-votes?username=${encodeURIComponent(username)}&admin=${encodeURIComponent(password)}`);
+  if (!res.ok) {
+    const err = await res.json();
+    return alert(err.error || "Failed to load votes");
+  }
+  const votes = await res.json();
+  document.getElementById("rawVotesPre").textContent = JSON.stringify(votes, null, 2);
+});
+
+document.getElementById("refreshResultsBtn").addEventListener("click", async () => {
+  const res = await fetch(`${API_URL}/api/results?username=${encodeURIComponent(username)}&admin=${encodeURIComponent(password)}`);
+  if (!res.ok) {
+    const err = await res.json();
+    return alert(err.error || "Failed to load results");
+  }
+  const results = await res.json();
+  document.getElementById("resultsPre").textContent = JSON.stringify(results, null, 2);
+});
+</script>
+</body>
+</html>
+
