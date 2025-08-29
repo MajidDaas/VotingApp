@@ -1,124 +1,109 @@
-const API_BASE = "https://ranked-voting-app.onrender.com";
+// admin.js
 
-// =============== Voting Page ===============
-document.addEventListener("DOMContentLoaded", () => {
-  const candidatesList = document.getElementById("candidatesList");
-  const tokenInput = document.getElementById("tokenInput");
-  const submitVote = document.getElementById("submitVote");
-  const message = document.getElementById("message");
+const API_BASE = "https://ranked-voting-app.onrender.com/api"; 
 
-  if (candidatesList) {
-    fetch(`${API_BASE}/api/candidates`)
-      .then(res => res.json())
-      .then(candidates => {
-        candidatesList.innerHTML = candidates.map(c =>
-          `<div class="p-4 border rounded-lg bg-gray-50 shadow hover:bg-gray-100 transition cursor-move" draggable="true">${c}</div>`
-        ).join("");
+// --- Login ---
+const loginForm = document.getElementById("loginForm");
+const loginSection = document.getElementById("loginSection");
+const dashboardSection = document.getElementById("dashboardSection");
+const loginError = document.getElementById("loginError");
 
-        enableDragDrop();
-      });
-  }
+// Change these for your admin login
+const ADMIN_USERNAME = "admin";
+const ADMIN_PASSWORD = "password123";
 
-  if (submitVote) {
-    submitVote.addEventListener("click", () => {
-      const token = tokenInput.value.trim();
-      const ballot = [...document.querySelectorAll("#candidatesList div")].map(div => div.textContent);
+loginForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
 
-      fetch(`${API_BASE}/api/vote`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, ballot })
-      })
-        .then(res => res.json())
-        .then(data => {
-          message.textContent = data.message || data.error;
-          message.className = data.error ? "mt-6 text-center text-red-600" : "mt-6 text-center text-green-600";
-        });
-    });
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    loginSection.classList.add("hidden");
+    dashboardSection.classList.remove("hidden");
+    loadLinks();
+    loadResults();
+    loadRawVotes();
+  } else {
+    loginError.textContent = "Invalid username or password.";
   }
 });
 
-// Enable drag/drop sorting for ranked choices
-function enableDragDrop() {
-  const list = document.getElementById("candidatesList");
-  let dragged;
+// --- Tabs ---
+const tabButtons = document.querySelectorAll(".tab-btn");
+const tabContents = document.querySelectorAll(".tab-content");
 
-  list.addEventListener("dragstart", e => {
-    dragged = e.target;
-    e.target.style.opacity = 0.5;
-  });
+tabButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const tab = btn.dataset.tab;
 
-  list.addEventListener("dragend", e => {
-    e.target.style.opacity = "";
+    tabContents.forEach((content) =>
+      content.classList.add("hidden")
+    );
+    document.getElementById(`${tab}Tab`).classList.remove("hidden");
   });
+});
 
-  list.addEventListener("dragover", e => {
-    e.preventDefault();
-  });
+// --- Fetch Voting Links ---
+async function loadLinks() {
+  try {
+    const res = await fetch(`${API_BASE}/tokens`);
+    const data = await res.json();
+    const list = document.getElementById("linksList");
+    list.innerHTML = "";
 
-  list.addEventListener("drop", e => {
-    e.preventDefault();
-    if (e.target.parentNode === list && dragged !== e.target) {
-      list.insertBefore(dragged, e.target.nextSibling);
-    }
-  });
+    data.tokens.forEach((token) => {
+      const li = document.createElement("li");
+      li.textContent = `https://rankedvotingapp.netlify.app/?token=${token}`;
+      list.appendChild(li);
+    });
+  } catch (err) {
+    console.error("Error fetching links:", err);
+  }
 }
 
-// =============== Admin Page ===============
-const loginBtn = document.getElementById("loginBtn");
-if (loginBtn) {
-  loginBtn.addEventListener("click", () => {
-    const username = document.getElementById("adminUser").value;
-    const password = document.getElementById("adminPass").value;
-
-    fetch(`${API_BASE}/api/admin/login`, {
+// --- Generate New Link ---
+document.getElementById("generateLinkBtn").addEventListener("click", async () => {
+  try {
+    const res = await fetch(`${API_BASE}/generatelink`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          document.getElementById("loginSection").classList.add("hidden");
-          document.getElementById("dashboardSection").classList.remove("hidden");
-          window.adminPassword = password;
-        } else {
-          document.getElementById("loginMessage").textContent = data.error;
-        }
-      });
-  });
-}
-
-function loadTokens() {
-  fetch(`${API_BASE}/api/admin/tokens?password=${window.adminPassword}`)
-    .then(res => res.json())
-    .then(tokens => {
-      document.getElementById("adminContent").innerHTML = `
-        <h2 class="text-xl font-bold mb-4">Tokens</h2>
-        <ul class="space-y-2">${tokens.map(t => `<li>${t.id} - ${t.used ? "✅ Used" : "❌ Unused"}</li>`).join("")}</ul>
-      `;
     });
-}
+    const data = await res.json();
+    alert(`New link: https://rankedvotingapp.netlify.app/?token=${data.token}`);
+    loadLinks();
+  } catch (err) {
+    console.error("Error generating link:", err);
+  }
+});
 
-function loadResults() {
-  fetch(`${API_BASE}/api/admin/results?password=${window.adminPassword}`)
-    .then(res => res.json())
-    .then(results => {
-      document.getElementById("adminContent").innerHTML = `
-        <h2 class="text-xl font-bold mb-4">Winners</h2>
-        <ol class="list-decimal ml-6">${results.winners.map(w => `<li>${w}</li>`).join("")}</ol>
-      `;
+// --- Fetch Results ---
+async function loadResults() {
+  try {
+    const res = await fetch(`${API_BASE}/results`);
+    const data = await res.json();
+    const resultsDisplay = document.getElementById("resultsDisplay");
+
+    resultsDisplay.innerHTML = "";
+    Object.entries(data.results).forEach(([option, count]) => {
+      const div = document.createElement("div");
+      div.textContent = `${option}: ${count} votes`;
+      resultsDisplay.appendChild(div);
     });
+  } catch (err) {
+    console.error("Error fetching results:", err);
+  }
 }
 
-function loadRawVotes() {
-  fetch(`${API_BASE}/api/admin/raw-votes?password=${window.adminPassword}`)
-    .then(res => res.json())
-    .then(votes => {
-      document.getElementById("adminContent").innerHTML = `
-        <h2 class="text-xl font-bold mb-4">Raw Votes</h2>
-        <pre class="bg-gray-800 text-white p-4 rounded">${JSON.stringify(votes, null, 2)}</pre>
-      `;
-    });
+// --- Fetch Raw Votes ---
+async function loadRawVotes() {
+  try {
+    const res = await fetch(`${API_BASE}/raw-votes`);
+    const data = await res.json();
+    document.getElementById("rawVotesDisplay").textContent = JSON.stringify(
+      data,
+      null,
+      2
+    );
+  } catch (err) {
+    console.error("Error fetching raw votes:", err);
+  }
 }
-
